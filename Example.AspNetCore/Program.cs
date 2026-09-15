@@ -143,7 +143,7 @@ appBuilder
                     otlpOptions.Endpoint = new Uri(
                         appBuilder.Configuration.GetValue(
                             "Otlp:Endpoint",
-                            defaultValue: "http://localhost:4137"
+                            defaultValue: "http://localhost:4317"
                         )
                     );
                 });
