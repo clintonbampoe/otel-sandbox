@@ -12,16 +12,16 @@ public sealed class InstrumentationSource : IDisposable
     public InstrumentationSource()
     {
         var version = typeof(InstrumentationSource).Assembly.GetName().Version?.ToString();
-        this.ActivitySource = new ActivitySource(ActivitySourceName, version);
-        this._meter = new Meter(MeterName, version);
-        this.FreezingDaysCounter = this._meter.CreateCounter<long>(
-            "weather.days.freezing",
-            description: "The number of days where the temperature is below freezing."
+        ActivitySource = new ActivitySource(ActivitySourceName, version);
+        _meter = new Meter(MeterName, version);
+        TodosCreatedCounter = _meter.CreateCounter<long>(
+            "todos.created",
+            description: "The number of todos created."
         );
     }
 
     public ActivitySource ActivitySource { get; }
-    public Counter<long> FreezingDaysCounter { get; }
+    public Counter<long> TodosCreatedCounter { get; }
 
     public void Dispose()
     {

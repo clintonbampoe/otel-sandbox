@@ -1,52 +1,30 @@
 using System.Diagnostics.Metrics;
 using Example.AspNetCore;
+using Example.AspNetCore.Data;
+using Example.AspNetCore.Endpoints;
+using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Scalar.AspNetCore;
 
 var appBuilder = WebApplication.CreateBuilder(args);
 
-// Note: Switch between OTLP/Console by setting UseTracingExporter in appsettings.json
-var tracingExporter = appBuilder
-    .Configuration.GetValue("UseTracingExporter", defaultValue: "CONSOLE")
-    .ToUpperInvariant();
+var otlpEndpoint = new Uri(
+    appBuilder.Configuration.GetValue("Otlp:Endpoint", defaultValue: "http://localhost:4317")
+);
 
-// Note: Switch between Prometheus/OTLP/Console by setting UseMetricsExporter in appsettings.json
-var metricsExporter = appBuilder
-    .Configuration.GetValue("UseMetricsExporter", defaultValue: "CONSOLE")
-    .ToUpperInvariant();
-
-// Note: Switch between OTLP/Console by setting UseLogExporter in appsettings.json
-var logExporter = appBuilder
-    .Configuration.GetValue("UseLogExporter", defaultValue: "CONSOLE")
-    .ToUpperInvariant();
-
-// Note: Switch between Explicit/Exponential by setting HistogramAggregation in appsettings.json
-var histogramAggregation = appBuilder
-    .Configuration.GetValue("HistogramAggregation", defaultValue: "EXPLICIT")
-    .ToUpperInvariant();
-
-// Create a serive to expose ActivitySource, and Metric Instruments
-// for manual instrumentation
-appBuilder.Services.AddSingleton<InstrumentationSource>();
-
-// Add HttpClient to the service provider for dependency injection
-appBuilder.Services.AddHttpClient();
-
-// Clear default logging providers used by WebApplication host.
 appBuilder.Logging.ClearProviders();
 
-// Configure OpenTelemetry logging, metrics & tracing with auto-start using the
-// AddOpenTelemetry extension from OpenTelemetry.Extensions.Hosting.
 appBuilder
     .Services.AddOpenTelemetry()
     .ConfigureResource(resource =>
         resource.AddService(
             serviceName: appBuilder.Configuration.GetValue(
                 "ServiceName",
-                defaultValue: "otel-test"
+                defaultValue: "otel-sandbox"
             ),
             serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "Unknown",
             serviceInstanceId: Environment.MachineName
@@ -54,125 +32,50 @@ appBuilder
     )
     .WithTracing(builder =>
     {
-        // Tracing
-        // Ensure the TracerProvider subscribes to any custom ActivitySources.
         builder
             .AddSource(InstrumentationSource.ActivitySourceName)
             .SetSampler(new AlwaysOnSampler())
             .AddHttpClientInstrumentation()
-            .AddAspNetCoreInstrumentation();
+            .AddAspNetCoreInstrumentation()
+            .AddOtlpExporter(o => o.Endpoint = otlpEndpoint);
 
-        // Use IConfiguration buinding for AspNetCore instrumentation options
         appBuilder.Services.Configure<AspNetCoreTraceInstrumentationOptions>(
             appBuilder.Configuration.GetSection("AspNetCoreInstrumentation")
         );
-
-        switch (tracingExporter)
-        {
-            case "OTLP":
-                builder.AddOtlpExporter(otlpOptions =>
-                {
-                    // Use IConfiguration directly for Otlp exporter endpoint option.
-                    otlpOptions.Endpoint = new Uri(
-                        appBuilder.Configuration.GetValue(
-                            "Otlp:Endpoint",
-                            defaultValue: "http://localhost:4317"
-                        )
-                    );
-                });
-                break;
-            default:
-                builder.AddConsoleExporter();
-                break;
-        }
     })
     .WithMetrics(builder =>
     {
-        // Ensure the MeterProvider subscribes to any custom Meters.
         builder
             .AddMeter(InstrumentationSource.MeterName)
             .SetExemplarFilter(ExemplarFilterType.TraceBased)
             .AddRuntimeInstrumentation()
-            .AddAspNetCoreInstrumentation();
+            .AddAspNetCoreInstrumentation()
+            .AddOtlpExporter(o => o.Endpoint = otlpEndpoint);
 
-        switch (histogramAggregation)
-        {
-            case "EXPONENTIAL":
-                builder.AddView(instrument =>
-                    instrument.GetType().GetGenericTypeDefinition() == typeof(Histogram<>)
-                        ? new Base2ExponentialBucketHistogramConfiguration()
-                        : null
-                );
-                break;
-            // Explicit bounds histrogram is the default.
-            // No default case of additional configuration required.
-        }
-
-        switch (metricsExporter)
-        {
-            case "PROMETHEUS":
-                builder.AddPrometheusExporter();
-                break;
-            case "OTLP":
-                builder.AddOtlpExporter(otlpOptions =>
-                {
-                    // Use IConfiguration directly for Otlp exporter endpoint option.
-                    otlpOptions.Endpoint = new Uri(
-                        appBuilder.Configuration.GetValue(
-                            "Otlp:Endpoint",
-                            defaultValue: "http://localhost:4317"
-                        )
-                    );
-                });
-                break;
-            default:
-                builder.AddConsoleExporter();
-                break;
-        }
+        builder.AddView(instrument =>
+            instrument.GetType().GetGenericTypeDefinition() == typeof(Histogram<>)
+                ? new Base2ExponentialBucketHistogramConfiguration()
+                : null
+        );
     })
     .WithLogging(builder =>
     {
-        // Note: See appsettings.josn Logging:OpenTelemetry section for configuration.
-
-        switch (logExporter)
-        {
-            case "OTLP":
-                builder.AddOtlpExporter(otlpOptions =>
-                {
-                    // Use IConfiguration directly for Otlp exporter endpoint
-                    otlpOptions.Endpoint = new Uri(
-                        appBuilder.Configuration.GetValue(
-                            "Otlp:Endpoint",
-                            defaultValue: "http://localhost:4317"
-                        )
-                    );
-                });
-                break;
-            default:
-                builder.AddConsoleExporter();
-                break;
-        }
+        builder.AddOtlpExporter(o => o.Endpoint = otlpEndpoint);
     });
 
-appBuilder.Services.AddControllers();
-appBuilder.Services.AddEndpointsApiExplorer();
-appBuilder.Services.AddSwaggerGen();
+appBuilder.Services.AddSingleton<InstrumentationSource>();
+appBuilder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
+appBuilder.Services.AddOpenApi();
+appBuilder.Services.AddAuthorization();
 
 var app = appBuilder.Build();
 
+app.MapTodoRoutes();
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseAuthorization();
-app.MapControllers();
-
-// Configure OpenTelemetry Prometheus AspNetCore middleware scrape endpoint if enabled.
-if (metricsExporter.Equals("prometheus", StringComparison.OrdinalIgnoreCase))
-{
-    app.UseOpenTelemetryPrometheusScrapingEndpoint();
-}
-
 app.Run();
