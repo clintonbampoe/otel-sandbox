@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="Example.AspNetCore/Example.AspNetCore.csproj" />
+  <Project Path="OtelSandbox.AppHost/OtelSandbox.AppHost.csproj" />
+  <Project Path="OtelSandbox.ServiceDefaults/OtelSandbox.ServiceDefaults.csproj" />
 </Solution>

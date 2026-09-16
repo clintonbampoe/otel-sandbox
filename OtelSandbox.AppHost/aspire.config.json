@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "OtelSandbox.AppHost.csproj"
+  }
+}

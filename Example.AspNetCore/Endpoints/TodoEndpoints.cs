@@ -6,7 +6,7 @@ namespace Example.AspNetCore.Endpoints;
 
 public static class TodoEndpoints
 {
-    public static void MapTodoRoutes(this IEndpointRouteBuilder app)
+    public static void MapTodoEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/todos", Create);
         app.MapGet("/todos/{id:int}", Get);
