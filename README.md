@@ -1,50 +1,62 @@
 # otel-sandbox
 
-A sandbox for exploring observability concepts with OpenTelemetry and the LGTM stack (Loki, Grafana, Tempo, Mimir).
+A sandbox for exploring OpenTelemetry and observability concepts — how apps behave in production, how signals flow through layers, and what good instrumentation looks like. The app itself is intentionally simple; it's just a vehicle.
 
 ## Prerequisites
 
 - [.NET 10](https://dotnet.microsoft.com/download)
 - [Docker](https://www.docker.com/products/docker-desktop)
 
-## Getting started
+## Modes
 
-1. Start the LGTM stack
+The sandbox runs in two modes. The OTel pipeline is the same in both — only the destination changes.
 
-```bash
-docker compose up -d
-```
+### Aspire (for local monitoring)
 
-2. Run the app
+Run the AppHost. Aspire starts the app and its own dashboard, no Docker needed.
 
 ```bash
-cd Example.AspNetCore
+cd OtelSandbox.AppHost
 dotnet run
 ```
 
-3. Generate some telemetry
+| UI | URL |
+| --- | --- |
+| Aspire Dashboard | <http://localhost:15888> |
+| Scalar (API docs) | <http://localhost:5000/scalar> |
 
-Hit the weather endpoint a few times:
+### LGTM - Loki, Grafana, Tempo, Mimir & Prometheus (for production-like environments)
+
+Start the LGTM stack services with docker, then run the app. Telemetry is exported to Grafana.
 
 ```bash
-curl http://localhost:5000/WeatherForecast
+docker compose up -d
+cd Example.AspNetCore
+dotnet run
 ```
-
-## Where to look
 
 | UI | URL |
 | --- | --- |
 | Grafana (traces, logs, metrics) | <http://localhost:3000> |
 | Prometheus | <http://localhost:9090> |
-| Swagger | <http://localhost:5000/swagger> |
+| Scalar (API docs) | <http://localhost:5000/scalar> |
 
-## Switching exporters
+## Configuration
 
-The app defaults to OTLP. You can switch exporters in `appsettings.json`:
+The OTLP endpoint is controlled by a single key in `appsettings.Development.json`:
 
 ```json
-"UseTracingExporter": "otlp",   // otlp | console
-"UseMetricsExporter": "otlp",   // otlp | prometheus | console
-"UseLogExporter": "otlp",       // otlp | console
-"HistogramAggregation": "explicit" // explicit | exponential
+{
+  "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
+}
+```
+
+Under Aspire this is injected automatically — you don't set it manually.
+
+## Endpoints
+
+``` text
+POST /todos        create a todo
+GET  /todos        list all todos
+GET  /todos/{id}   get a todo by id
 ```
