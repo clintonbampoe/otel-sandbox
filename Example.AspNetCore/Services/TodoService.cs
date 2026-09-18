@@ -1,15 +1,18 @@
 using System.Diagnostics;
 using Example.AspNetCore.Data;
-using Example.AspNetCore.Models;
+using Example.AspNetCore.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Example.AspNetCore.Services;
 
-public class TodoService(TodoDb db, ILogger<Todo> logger, InstrumentationSource instrumentation)
+public class TodoService(
+    AppDbContext db,
+    ILogger<Todo> logger,
+    InstrumentationSource instrumentation
+)
 {
     public async Task<List<Todo>> List(CancellationToken ct = default)
     {
-        using var activity = instrumentation.ActivitySource.StartActivity();
         var todos = await db.Todos.AsNoTracking().ToListAsync(ct);
         Log.TodoListFetched(logger);
         return todos;
@@ -17,7 +20,6 @@ public class TodoService(TodoDb db, ILogger<Todo> logger, InstrumentationSource 
 
     public async Task<Todo?> GetById(int id, CancellationToken ct = default)
     {
-        using var activity = instrumentation.ActivitySource.StartActivity();
         var todo = await db.Todos.FindAsync(id, ct);
 
         if (todo is null)
@@ -32,7 +34,6 @@ public class TodoService(TodoDb db, ILogger<Todo> logger, InstrumentationSource 
 
     public async Task<Todo> Create(TodoDto dto, CancellationToken ct = default)
     {
-        using var activity = instrumentation.ActivitySource.StartActivity();
         var todo = new Todo
         {
             Title = dto.Title,
@@ -43,6 +44,8 @@ public class TodoService(TodoDb db, ILogger<Todo> logger, InstrumentationSource 
         var sw = Stopwatch.StartNew();
         db.Todos.Add(todo);
         await db.SaveChangesAsync(ct);
+        sw.Stop();
+
         instrumentation.CreateDuration.Record(sw.ElapsedMilliseconds);
         instrumentation.TodosCreatedCounter.Add(1);
         Log.TodoCreated(logger, todo.Id);
@@ -51,7 +54,6 @@ public class TodoService(TodoDb db, ILogger<Todo> logger, InstrumentationSource 
 
     public async Task<Todo?> Update(int id, TodoDto dto, CancellationToken ct = default)
     {
-        using var activity = instrumentation.ActivitySource.StartActivity();
         var todo = await db.Todos.FindAsync(id, ct);
 
         if (todo is null)

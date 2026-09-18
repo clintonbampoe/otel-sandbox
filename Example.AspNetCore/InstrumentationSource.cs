@@ -36,8 +36,8 @@ public sealed class InstrumentationSource : IDisposable
 
     public void Dispose()
     {
-        this.ActivitySource.Dispose();
-        this._meter.Dispose();
+        ActivitySource.Dispose();
+        _meter.Dispose();
     }
 
     public static void AddMetrics(MeterProviderBuilder metrics)

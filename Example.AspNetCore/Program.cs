@@ -2,7 +2,6 @@ using Example.AspNetCore;
 using Example.AspNetCore.Data;
 using Example.AspNetCore.Endpoints;
 using Example.AspNetCore.Services;
-using Microsoft.EntityFrameworkCore;
 using OtelSandbox.ServiceDefaults;
 using Scalar.AspNetCore;
 
@@ -15,9 +14,10 @@ appBuilder
     .WithMetrics(InstrumentationSource.AddMetrics)
     .WithTracing(InstrumentationSource.AddTracing);
 
+appBuilder.AddNpgsqlDbContext<AppDbContext>("todoDb");
+
 appBuilder.Services.AddSingleton<InstrumentationSource>();
 appBuilder.Services.AddScoped<TodoService>();
-appBuilder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
 appBuilder.Services.AddOpenApi();
 appBuilder.Services.AddAuthorization();
 var app = appBuilder.Build();

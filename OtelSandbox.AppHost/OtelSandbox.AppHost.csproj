@@ -1,5 +1,4 @@
 <Project Sdk="Aspire.AppHost.Sdk/13.5.4">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -10,7 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Example.AspNetCore.MigrationService\Example.AspNetCore.MigrationService.csproj" />
     <ProjectReference Include="..\Example.AspNetCore\Example.AspNetCore.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+  </ItemGroup>
 </Project>
